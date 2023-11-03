@@ -4,6 +4,8 @@
 
 - Latest build status with azerothcore: [![Build Status](https://github.com/azerothcore/mod-autobalance/workflows/core-build/badge.svg?branch=master&event=push)](https://github.com/azerothcore/mod-autobalance)
 
+A version of `mod-autobalance` compatible with [AzerothCore-wotlk-with-NPCBots](https://github.com/trickerer/AzerothCore-wotlk-with-NPCBots)
+
 This module is intended to scale based on number of players, instance mobs and bosses' health, mana, and damage.
 
 **NOTE:** This module requires at least [this commit](https://github.com/azerothcore/azerothcore-wotlk/commit/f127e583aae3cfa51a77d056c1892a7de07ffb52) of AzerothCore in order to work correctly. Older versions are not supported.
