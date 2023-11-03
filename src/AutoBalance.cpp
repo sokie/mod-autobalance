@@ -51,6 +51,13 @@
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #endif
 
+//npcbot
+#if not(defined(MOD_PRESENT_NPCBOTS)) || MOD_PRESENT_NPCBOTS != 1
+ #error "NPCBots mod is not installed! This version of Autobalance only supports AzerothCore+NPCBots."
+#endif
+#include "botmgr.h"
+//end npcbot
+
 using namespace Acore::ChatCommands;
 
 enum ScalingMethod {
@@ -987,6 +994,11 @@ bool isCreatureRelevant(Creature* creature) {
 
         return false;
     }
+
+    //npcbot
+    if (creature->IsNPCBotOrPet())
+        return false;
+    //end npcbot
 
     // if this is a player temporary summon (that isn't actively trying to kill the players), make no changes
     if (
@@ -2302,6 +2314,11 @@ void AddCreatureToMapCreatureList(Creature* creature, bool addToCreatureList = t
         );
         return;
     }
+
+    //npcbot
+    if (creature->IsNPCBotOrPet())
+        return;
+    //end npcbot
 
     // if the creature level is below 85% of the minimum LFG level, assume it's a flavor creature and shouldn't be tracked
     if (creatureABInfo->UnmodifiedLevel < (uint8)(((float)mapABInfo->lfgMinLevel * 0.85f) + 0.5f))
@@ -4206,6 +4223,11 @@ class AutoBalance_UnitScript : public UnitScript
             // if the target isn't a player or the caster is a player, return the original duration
             if (!target->IsPlayer() || caster->IsPlayer())
                 return originalDuration;
+
+            //npcbot
+            if (caster->IsNPCBotOrPet())
+                return originalDuration;
+            //end npcbot
 
             // make sure we're in an instance, else return the original duration
             if (!(target->GetMap()->IsDungeon() && caster->GetMap()->IsDungeon()))
@@ -6605,6 +6627,18 @@ public:
 };
 
 
+//npcbot
+class ABModuleNPCBots : public ABModuleScript
+{
+public:
+    ABModuleNPCBots() : ABModuleScript("ABModuleNPCBots") {}
+
+    bool OnBeforeModifyAttributes(Creature* creature, uint32& /*instancePlayerCount*/) override { return !creature->IsNPCBotOrPet(); }
+    bool OnAfterDefaultMultiplier(Creature* creature, float& /*defaultMultiplier*/) override { return !creature->IsNPCBotOrPet(); }
+    bool OnBeforeUpdateStats(Creature* creature, uint32& /*scaledHealth*/, uint32& /*scaledMana*/, float& /*damageMultiplier*/, uint32& /*newBaseArmor*/) override { return !creature->IsNPCBotOrPet(); }
+};
+//end npcbot
+
 
 void AddAutoBalanceScripts()
 {
@@ -6616,4 +6650,8 @@ void AddAutoBalanceScripts()
     new AutoBalance_AllMapScript();
     new AutoBalance_CommandScript();
     new AutoBalance_GlobalScript();
+
+    //npcbot
+    new ABModuleNPCBots();
+    //end npcbot
 }
