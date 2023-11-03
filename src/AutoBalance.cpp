@@ -4087,6 +4087,11 @@ class AutoBalance_UnitScript : public UnitScript
                 return amount;
             }
 
+            //npcbot
+            if (source->IsNPCBotOrPet())
+                return amount;
+            //end npcbot
+
             //
             // Multiplier calculation
             //
