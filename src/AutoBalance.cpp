@@ -2551,6 +2551,19 @@ void UpdateMapPlayerStats(Map* map)
     // minimum of 1 to prevent scaling weirdness when only GMs are in the instnace
     mapABInfo->playerCount = mapABInfo->allMapPlayers.size() ? mapABInfo->allMapPlayers.size() : 1;
 
+    uint8 botCount = 0;
+
+    for (std::vector<Player*>::const_iterator playerIterator = mapABInfo->allMapPlayers.begin(); playerIterator != mapABInfo->allMapPlayers.end(); ++playerIterator)
+    {
+        Player* thisPlayer = *playerIterator;
+        if (thisPlayer->HaveBot()) {
+            botCount += thisPlayer->GetNpcBotsCount();
+        }
+    }
+
+    // add bots to player count
+    mapABInfo->playerCount += botCount;
+
     LOG_DEBUG("module.AutoBalance", "AutoBalance::UpdateMapPlayerStats: Map {} ({}{}) | playerCount = ({}).",
         instanceMap->GetMapName(),
         instanceMap->GetId(),
@@ -4487,11 +4500,52 @@ class AutoBalance_GameObjectScript : public AllGameObjectScript
 
 class AutoBalance_AllMapScript : public AllMapScript
 {
+
+
+    //npcbot
+    class PlayersCountRecheckEvent : public BasicEvent
+    {
+    public:
+        explicit PlayersCountRecheckEvent(AutoBalance_AllMapScript* script, Map* map, Player const* player)
+            : _script(script), _map(map), _player(player) {}
+        PlayersCountRecheckEvent(PlayersCountRecheckEvent const&) = delete;
+
+        bool Execute(uint64 /*e_time*/, uint32 /*p_time*/)
+        {
+            if (_player->HaveBot())
+                _script->AfterBotsEnter(_map, _player);
+            return true;
+        }
+
+    private:
+        AutoBalance_AllMapScript* _script;
+        Map* _map;
+        Player const* _player;
+    };
+    //end npcbot
+
     public:
     AutoBalance_AllMapScript()
         : AllMapScript("AutoBalance_AllMapScript")
         {
         }
+
+        //npcbot
+        void AfterBotsEnter(Map* map, Player const* player)
+        {
+            AutoBalanceMapInfo* mapABInfo = map->CustomData.GetDefault<AutoBalanceMapInfo>("AutoBalanceMapInfo");
+            uint32 old_player_count = mapABInfo->playerCount;
+            UpdateMapPlayerStats(map);
+            mapABInfo->mapConfigTime = GetCurrentConfigTime();
+            if (mapABInfo->enabled && PlayerChangeNotify && EnableGlobal && old_player_count != mapABInfo->playerCount) {
+                for (MapReference const& ref : map->GetPlayers()) {
+                    if (Player const* playerHandle = ref.GetSource()) {
+                        ChatHandler(playerHandle->GetSession()).PSendSysMessage("|cffFF0000 [AutoBalance+NPCBots]|r|cffFF8000 %s's bots entered %s. Auto setting player count to %i (Player Difficulty Offset = %i) |r", player->GetName().c_str(), map->GetMapName(), mapABInfo->playerCount + PlayerCountDifficultyOffset, PlayerCountDifficultyOffset);
+                    }
+                }
+            }
+        }
+        //end npcbot
 
         void OnCreateMap(Map* map)
         {
@@ -4645,6 +4699,12 @@ class AutoBalance_AllMapScript : public AllMapScript
             {
                 AddCreatureToMapCreatureList(*creatureIterator, false, true);
             }
+
+            //npcbot: recalculate players count once all bots are teleported
+            //event will be automatically deleted if player teleports out of the map before execution
+            //max teleport delay for bot is 8000ms
+            player->m_Events.AddEvent(new PlayersCountRecheckEvent(this, map, player), player->m_Events.CalculateTime(8500));
+            //end npcbot
 
             // Notify players of the change
             if (PlayerChangeNotify && mapABInfo->enabled)
